@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mexican Train Dominoes (Single Player)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .domino {
+            width: 50px;
+            height: 90px;
+            background-color: #fff;
+            border: 2px solid #333;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+            padding: 4px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+            user-select: none; /* Prevent text selection on dominoes */
+        }
+        .domino:hover {
+            transform: translateY(-3px);
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.3);
+        }
+        .domino.selected {
+            border-color: #ef4444; /* Red border for selected domino */
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.7);
+            transform: translateY(-5px) scale(1.05);
+        }
+        .domino.playable-target {
+            border-color: #22c55e; /* Green border for playable train ends */
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.7);
+        }
+        .domino-half {
+            width: 100%;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem; /* Size of the pips (numbers) */
+            font-weight: 700;
+            color: #333;
+        }
+        .domino-divider {
+            width: 80%;
+            height: 2px;
+            background-color: #333;
+            border-radius: 1px;
+        }
+        .train-dominoes .domino {
+            cursor: default; /* Dominoes in trains are not clickable */
+            box-shadow: none;
+        }
+        .train-dominoes .domino:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        .train-end-marker {
+            width: 50px; /* Same width as domino */
+            height: 90px; /* Same height as domino */
+            background-color: #e0e0e0;
+            border: 2px dashed #999;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #666;
+            cursor: pointer;
+            transition: border-color 0.1s ease-in-out, background-color 0.1s ease-in-out;
+        }
+        .train-end-marker:hover {
+            border-color: #555;
+            background-color: #d0d0d0;
+        }
+        .train-end-marker.playable-target {
+            border-color: #22c55e; /* Green border for playable train ends */
+            background-color: #dcfce7; /* Light green background */
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.7);
+        }
+        .train-area.open-train {
+            background-color: #fee2e2; /* Light red for open trains */
+            border: 2px dashed #ef4444;
+        }
+        .train-area.open-train .train-end-marker {
+            border-color: #ef4444;
+        }
+        /* Style for the large starting double */
+        #starting-double .domino {
+            width: 80px; /* Larger width */
+            height: 140px; /* Larger height */
+            font-size: 2.5rem; /* Larger pips */
+            border-width: 4px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.4);
+        }
+        .train-header {
+            position: relative; /* For absolute positioning of the toggle button */
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 0.75rem; /* mb-3 */
+        }
+        .toggle-train-view-button {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 9999px; /* full rounded */
+            padding: 0.25rem; /* p-1 */
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: background-color 0.2s ease-in-out;
+        }
+        .toggle-train-view-button:hover {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        .toggle-train-view-button svg {
+            width: 20px; /* w-5 */
+            height: 20px; /* h-5 */
+            color: #4b5563; /* text-gray-600 */
+        }
+        .domino-count {
+            /* Removed: position: absolute; top: 0; left: 0; */
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 9999px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 1px 3px (0,0,0,0.1);
+            /* Added for centering when placed inside a flex column */
+            margin-top: auto; /* Pushes it to the bottom */
+            align-self: center; /* Centers it horizontally within the flex column */
+        }
+        /* Added for flexbox layout to position domino-count */
+        .train-area {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Scoreboard specific styles */
+        #scoreboard-container {
+            margin-top: 2rem;
+            width: 100%;
+            max-w: 6xl;
+            background-color: #fff;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); /* shadow-2xl */
+            padding: 2rem; /* p-8 */
+        }
+        #scoreboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        #scoreboard-table th, #scoreboard-table td {
+            padding: 0.75rem 1rem; /* py-3 px-4 */
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+        }
+        #scoreboard-table th {
+            background-color: #f9fafb; /* bg-gray-50 */
+            font-weight: 600;
+            color: #4b5563; /* text-gray-700 */
+            text-transform: uppercase;
+            font-size: 0.875rem; /* text-sm */
+        }
+        #scoreboard-table tbody tr:nth-child(even) {
+            background-color: #f3f4f6; /* bg-gray-100 */
+        }
+        #scoreboard-table tbody tr:hover {
+            background-color: #e5e7eb; /* bg-gray-200 */
+        }
+        /* Removed tfoot styling as the tfoot element is removed */
+        /* Modal styles */
+        #round-end-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000; /* Higher than other elements */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        #round-end-modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        #round-end-modal-content {
+            background-color: #fff;
+            padding: 2.5rem; /* p-10 */
+            border-radius: 1rem; /* rounded-xl */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* shadow-2xl */
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease-in-out;
+        }
+        #round-end-modal-overlay.show #round-end-modal-content {
+            transform: translateY(0);
+        }
+
+        /* Drag and Drop styles */
+        .domino.dragging {
+            opacity: 0.5; /* Make dragged domino semi-transparent */
+            border-color: #a78bfa; /* Purple border while dragging */
+            box-shadow: 0 0 15px rgba(167, 139, 250, 0.7);
+        }
+
+        #player-hand .domino.drag-over-target {
+            border-color: #3b82f6; /* Blue border for drop target */
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            /* Optional: Add a slight scale or transform to show active target */
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <h1 class="text-4xl font-bold text-gray-800 mb-6">Mexican Train Dominoes</h1>
+    <div id="messages" class="text-xl font-semibold text-red-600 mb-4 text-center"></div>
+
+    <div id="game-container" class="flex flex-col md:flex-row items-center justify-center w-full max-w-6xl mx-auto">
+        <div id="game-board" class="bg-white rounded-xl shadow-2xl p-8 w-full">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+                <div id="boneyard-section" class="flex flex-col items-center p-6 bg-gray-200 rounded-lg shadow-inner w-full md:w-1/4">
+                    <div class="text-xl font-bold mb-3 text-gray-700">Boneyard</div>
+                    <div id="boneyard-count" class="text-4xl font-bold text-gray-900 mb-4"></div>
+                    <button id="draw-button" class="px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition duration-200 ease-in-out shadow-md">Draw Domino</button>
+                </div>
+
+                <div id="starting-double" class="flex items-center justify-center p-4 bg-gray-300 rounded-lg shadow-inner w-32 h-32 flex-shrink-0">
+                    </div>
+
+                <div id="main-train-area" class="flex flex-col items-center p-6 bg-green-100 rounded-lg shadow-inner w-full md:w-2/4">
+                    <div class="train-header">
+                        <div class="text-xl font-bold text-green-800">Mexican Train</div>
+                        <button class="toggle-train-view-button" data-train-id="mainTrain">
+                            </button>
+                    </div>
+                    <div id="main-train" class="flex flex-wrap justify-center gap-3 p-3 bg-green-50 rounded-md min-h-[100px] border border-green-200 w-full">
+                        </div>
+                </div>
+            </div>
+
+            <div id="all-trains-area" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <div id="player-train-0" class="train-area bg-yellow-100 p-6 rounded-lg shadow-md border border-yellow-200">
+                    <div class="train-header">
+                        <div class="text-xl font-bold text-yellow-800">Your Train</div>
+                        <button class="toggle-train-view-button" data-train-id="playerTrain">
+                            </button>
+                    </div>
+                    <div class="train-dominoes flex flex-wrap gap-3 min-h-[100px] justify-center"></div>
+                    <div class="domino-count" id="player-domino-count"></div>
+                </div>
+                </div>
+
+            <div id="player-hand-area" class="bg-purple-100 p-6 rounded-lg shadow-md border border-purple-200">
+                <div class="text-xl font-bold mb-3 text-purple-800">Your Hand</div>
+                <div id="player-hand" class="flex flex-wrap gap-3 min-h-[120px] justify-center">
+                    </div>
+            </div>
+
+            <div class="flex justify-center mt-8">
+                <button id="end-turn-button" class="px-8 py-4 bg-red-600 text-white rounded-full text-xl font-bold hover:bg-red-700 transition duration-200 ease-in-out shadow-lg">End Turn</button>
+            </div>
+        </div>
+    </div>
+
+    <button id="toggle-turn-info" class="fixed top-1/2 right-0 -translate-y-1/2 bg-blue-600 text-white p-3 rounded-l-lg shadow-lg hover:bg-blue-700 transition duration-200 z-[1001]">
+        <svg id="toggle-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+        </svg>
+    </button>
+
+    <div id="turn-info-box" class="fixed top-0 right-[-300px] w-80 h-full bg-white shadow-2xl p-6 transition-all duration-300 ease-in-out z-1000 overflow-y-auto">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Whose Turn Is It?</h2>
+        <div id="player-turn-list">
+            </div>
+        </div>
+
+    <div id="scoreboard-container" class="mt-8 w-full max-w-6xl">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Game Scores</h2>
+        <table id="scoreboard-table" class="min-w-full bg-white rounded-lg shadow-md">
+            <thead>
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Player</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+
+    <div id="round-end-modal-overlay">
+        <div id="round-end-modal-content" class="text-gray-800">
+            <h3 id="round-end-modal-title" class="text-3xl font-bold mb-4">Round Over!</h3>
+            <p id="round-end-modal-message" class="text-xl mb-6"></p>
+            <p id="round-end-modal-next-double" class="text-lg font-semibold text-blue-600"></p>
+        </div>
+    </div>
+
+    <script>
+        // Game State Variables
+        let allDominos = []; // All possible dominoes (e.g., [0,0] to [12,12])
+        let boneyard = [];    // Shuffled dominoes not in hands
+        let playerHand = [];
+        let computerHands = []; // Array of arrays, e.g., [[c1_d1, c1_d2], [c2_d1, c2_d2]]
+        let trains = {};      // Stores mainTrain, playerTrain, computerTrains
+        let startingDouble = [12, 12]; // Current round's starting double (will decrease each round)
+        let currentPlayerIndex = 0; // 0 for player, 1 for computer 1, etc.
+        let numPlayers = 5; // Player (0) + 2 computers (1, 2) - Changed to 5 for testing
+        let exposedDoubleTrainId = null; // Stores the ID of the train with an exposed double
+        let message = "";
+        let selectedDomino = null; // The domino object the player has clicked on
+        let selectedDominoIndex = -1; // Index of the selected domino in playerHand
+        let playerDrewThisTurn = false; // Flag to track if player drew a domino this turn
+        let playerPlayedThisTurn = false; // Flag to track if player played a domino this turn
+
+        // Scoreboard Variables
+        let roundScores = []; // Stores scores for each round
+        let currentRound = 1;
+        let playerNames = []; // Will be dynamically populated
+
+        // New state for "Whose Turn Is It?" box
+        let lastActionPlayerIndex = -1; // Index of the player who performed the last action
+        let lastActionDescription = '';  // Description of the last action
+
+        // Drag and Drop variables
+        let draggedDominoIndex = -1;
+
+        // Constants
+        const MAX_DOUBLE = 12; // Max double domino in the set (e.g., 12 for double-12 set)
+        // let HAND_SIZE = 15; // Number of dominoes dealt to each player - now dynamically set
+        const COMPRESSED_DOMINO_COUNT = 4; // Number of dominoes to show in compressed view for Mexican Train
+        const PLAYER_TRAIN_COMPRESSED_DOMINO_COUNT = 3; // Number of dominoes to show in compressed view for player/computer trains
+
+        // SVG icons for toggle buttons
+        const expandIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                            </svg>`;
+        const collapseIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l6-6m0 0l6 6m-6-6v12a6 6 0 01-12 0v-3m0 0l3-3m-3 3l3 3m0 0l3-3m-3 3v-3a6 6 0 016-6h3" />
+                            </svg>`;
+
+        // SVG icons for turn info panel toggle button
+        const openPanelIcon = `<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />`; // Double right arrow
+        const closePanelIcon = `<path stroke-linecap="round" stroke-linejoin="round" d="M12.75 4.5l-7.5 7.5 7.5 7.5m6-15l-7.5 7.5 7.5 7.5" />`; // Double left arrow
+
+        // DOM Elements
+        const messagesEl = document.getElementById('messages');
+        const boneyardCountEl = document.getElementById('boneyard-count');
+        const drawButton = document.getElementById('draw-button');
+        const endTurnButton = document.getElementById('end-turn-button');
+        const playerHandEl = document.getElementById('player-hand');
+        const mainTrainEl = document.getElementById('main-train');
+        const allTrainsAreaEl = document.getElementById('all-trains-area');
+        const startingDoubleEl = document.getElementById('starting-double'); // New: Reference to the starting double div
+        const playerDominoCountEl = document.getElementById('player-domino-count'); // New: Player's domino count element
+        const scoreboardTableEl = document.getElementById('scoreboard-table');
+        const turnInfoBoxEl = document.getElementById('turn-info-box'); // Reference to the new turn info box
+        const toggleTurnInfoButton = document.getElementById('toggle-turn-info'); // New: Toggle button for turn info box
+        const toggleIcon = document.getElementById('toggle-icon'); // Reference to the SVG icon within the toggle button
+
+        // Modal Elements
+        const roundEndModalOverlay = document.getElementById('round-end-modal-overlay');
+        const roundEndModalTitle = document.getElementById('round-end-modal-title');
+        const roundEndModalMessage = document.getElementById('round-end-modal-message');
+        const roundEndModalNextDouble = document.getElementById('round-end-modal-next-double');
+
+
+        /**
+         * Generates a full set of dominoes (e.g., 0-0 to 12-12).
+         * @param {number} maxDouble The highest double in the set (e.g., 12 for a double-12 set).
+         * @returns {Array<Array<number>>} An array of dominoes.
+         */
+        function generateDominos(maxDouble) {
+            const dominos = [];
+            for (let i = 0; i <= maxDouble; i++) {
+                for (let j = i; j <= maxDouble; j++) {
+                    dominos.push([i, j]);
+                }
+            }
+            return dominos;
+        }
+
+        /**
+         * Shuffles an array in place using the Fisher-Yates (Knuth) algorithm.
+         * @param {Array<any>} array The array to shuffle.
+         */
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]]; // Swap elements
+            }
+        }
+
+        /**
+         * Deals dominoes to players and computers.
+         * @param {number} numPlayers Total number of players (including human).
+         * @param {number} handSize Number of dominoes per hand.
+         */
+        function dealHands(numPlayers, handSize) {
+            playerHand = [];
+            computerHands = Array.from({ length: numPlayers - 1 }, () => []); // Initialize empty hands for computers
+
+            // Deal to player
+            for (let i = 0; i < handSize; i++) {
+                if (boneyard.length > 0) {
+                    playerHand.push(boneyard.pop());
+                }
+            }
+
+            // Deal to computers
+            for (let i = 0; i < numPlayers - 1; i++) {
+                for (let j = 0; j < handSize; j++) {
+                    if (boneyard.length > 0) {
+                        computerHands[i].push(boneyard.pop());
+                    }
+                }
+            }
+        }
+
+        /**
+         * Renders a single domino HTML element.
+         * @param {Array<number>} domino The domino to render, e.g., [1, 2].
+         * @param {boolean} clickable Whether the domino should be clickable (for player's hand).
+         * @param {boolean} isSelected Whether the domino is currently selected.
+         * @param {number} [indexInHand] Optional: The index of the domino in the player's hand for drag/drop.
+         * @returns {HTMLElement} The domino div element.
+         */
+        function renderDomino(domino, clickable = false, isSelected = false, indexInHand = -1) {
+            const dominoEl = document.createElement('div');
+            dominoEl.classList.add('domino', 'rounded-md', 'flex', 'flex-col', 'justify-around', 'items-center', 'shadow-md', 'bg-white', 'border-2', 'border-gray-800');
+            if (isSelected) {
+                dominoEl.classList.add('selected');
+            }
+            if (clickable) {
+                dominoEl.classList.add('cursor-pointer', 'hover:scale-105');
+                dominoEl.setAttribute('draggable', 'true'); // Make draggable
+                dominoEl.dataset.dominoIndex = indexInHand; // Store index for drag/drop
+            }
+
+            const half1 = document.createElement('div');
+            half1.classList.add('domino-half', 'text-gray-900', 'font-bold');
+            half1.textContent = domino[0];
+
+            const divider = document.createElement('div');
+            divider.classList.add('domino-divider', 'bg-gray-800');
+
+            const half2 = document.createElement('div');
+            half2.classList.add('domino-half', 'text-gray-900', 'font-bold');
+            half2.textContent = domino[1];
+
+            dominoEl.appendChild(half1);
+            dominoEl.appendChild(divider);
+            dominoEl.appendChild(half2);
+
+            return dominoEl;
+        }
+
+        /**
+         * Renders the player's hand.
+         */
+        function renderPlayerHand() {
+            playerHandEl.innerHTML = ''; // Clear existing hand
+            playerHand.forEach((domino, index) => {
+                const dominoEl = renderDomino(domino, true, index === selectedDominoIndex, index); // Pass index
+                dominoEl.addEventListener('click', (e) => {
+                    // Prevent click from interfering with dragend if it fires after drop
+                    if (e.detail === 0) return; // e.detail is 0 for synthetic clicks (e.g., from dragend)
+                    handleDominoClick(domino, index);
+                });
+
+                // Drag and Drop event listeners for individual dominoes
+                dominoEl.addEventListener('dragstart', handleDragStart);
+                dominoEl.addEventListener('dragover', handleDragOver);
+                dominoEl.addEventListener('dragleave', handleDragLeave);
+                dominoEl.addEventListener('drop', handleDrop);
+                dominoEl.addEventListener('dragend', handleDragEnd); // Clean up after drag
+
+                playerHandEl.appendChild(dominoEl);
+            });
+        }
+
+        /**
+         * Handles the start of a drag operation.
+         * @param {DragEvent} e
+         */
+        function handleDragStart(e) {
+            draggedDominoIndex = parseInt(e.target.dataset.dominoIndex);
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            // Set a dummy data, otherwise drag will not work in some browsers
+            e.dataTransfer.setData('text/plain', '');
+            setMessage("Drag domino to reorder in hand.", 'info');
+        }
+
+        /**
+         * Handles a dragged item moving over a valid drop target.
+         * @param {DragEvent} e
+         */
+        function handleDragOver(e) {
+            e.preventDefault(); // Necessary to allow dropping
+            e.dataTransfer.dropEffect = 'move';
+
+            // Visual feedback for the drop target
+            const targetDominoEl = e.target.closest('.domino');
+            if (targetDominoEl && targetDominoEl.parentNode === playerHandEl) {
+                // Remove existing highlights
+                playerHandEl.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+                // Add highlight to the current target
+                targetDominoEl.classList.add('drag-over-target');
+            } else {
+                 // If dragging over the empty space in the hand, but not directly over a domino
+                playerHandEl.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+            }
+        }
+
+        /**
+         * Handles a dragged item leaving a drop target.
+         * @param {DragEvent} e
+         */
+        function handleDragLeave(e) {
+            const targetDominoEl = e.target.closest('.domino');
+            if (targetDominoEl) {
+                targetDominoEl.classList.remove('drag-over-target');
+            }
+        }
+
+        /**
+         * Handles a dragged item being dropped.
+         * @param {DragEvent} e
+         */
+        function handleDrop(e) {
+            e.preventDefault();
+
+            playerHandEl.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+
+            const targetDominoEl = e.target.closest('.domino');
+            let dropTargetIndex;
+
+            if (targetDominoEl && targetDominoEl.parentNode === playerHandEl) {
+                dropTargetIndex = parseInt(targetDominoEl.dataset.dominoIndex);
+            } else {
+                // If dropped in an empty part of the hand area, put it at the end
+                dropTargetIndex = playerHand.length - 1;
+            }
+
+
+            if (draggedDominoIndex === -1 || draggedDominoIndex === dropTargetIndex) {
+                // No valid drag started or dropped on itself
+                return;
+            }
+
+            // Get the domino that was dragged
+            const draggedDomino = playerHand[draggedDominoIndex];
+
+            // Remove the domino from its original position
+            playerHand.splice(draggedDominoIndex, 1);
+
+            // Insert it at the new position
+            playerHand.splice(dropTargetIndex, 0, draggedDomino);
+
+            // Set the newly moved domino as the selected one
+            selectedDomino = draggedDomino;
+            selectedDominoIndex = dropTargetIndex;
+
+            setMessage("Domino reordered!", 'success');
+            draggedDominoIndex = -1; // Reset dragged index
+            updateUI(); // Re-render the hand to reflect the new order and selection
+        }
+
+        /**
+         * Cleans up after the drag operation ends.
+         * @param {DragEvent} e
+         */
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            // Ensure no lingering highlight if drop didn't occur on a specific target
+            playerHandEl.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+        }
+
+        /**
+         * Flips the currently selected domino in the player's hand.
+         */
+        function flipSelectedDomino() {
+            if (currentPlayerIndex !== 0) {
+                setMessage("It's not your turn!", 'error');
+                return;
+            }
+            if (selectedDominoIndex !== -1 && selectedDominoIndex < playerHand.length) {
+                const dominoToFlip = playerHand[selectedDominoIndex];
+                // Swap the values of the domino
+                [dominoToFlip[0], dominoToFlip[1]] = [dominoToFlip[1], dominoToFlip[0]];
+                setMessage(`Flipped domino: [${dominoToFlip[0]}|${dominoToFlip[1]}].`, 'info');
+                updateUI(); // Re-render to show the flipped domino
+            } else {
+                setMessage("Select a domino in your hand to flip it (press 'f').", 'info');
+            }
+        }
+
+        /**
+         * Renders the central starting double domino.
+         */
+        function renderStartingDouble() {
+            startingDoubleEl.innerHTML = ''; // Clear existing content
+            const dominoEl = renderDomino(startingDouble, false, false); // Not clickable, not selected
+            startingDoubleEl.appendChild(dominoEl);
+        }
+
+        /**
+         * Toggles the expanded/compressed view of a train.
+         * @param {string} trainId The ID of the train to toggle.
+         */
+        function toggleTrainView(trainId) {
+            if (trains[trainId]) {
+                trains[trainId].isExpanded = !trains[trainId].isExpanded;
+                updateUI();
+            }
+        }
+
+        /**
+         * Renders all trains on the board.
+         * @param {Object} currentTrains The trains object.
+         */
+        function renderTrains(currentTrains) {
+            // Clear existing computer train areas
+            const existingComputerTrainAreas = document.querySelectorAll('.computer-train-area');
+            existingComputerTrainAreas.forEach(el => el.remove());
+
+            // --- Render Main Train ---
+            mainTrainEl.innerHTML = '';
+            const mainTrainToRender = currentTrains.mainTrain.isExpanded ? currentTrains.mainTrain :
+                                      currentTrains.mainTrain.slice(-COMPRESSED_DOMINO_COUNT);
+            mainTrainToRender.forEach(domino => {
+                mainTrainEl.appendChild(renderDomino(domino));
+            });
+            const mainTrainEndMarker = createTrainEndMarker('mainTrain');
+            mainTrainEl.appendChild(mainTrainEndMarker);
+            // Update toggle button icon for main train
+            const mainTrainToggleButton = document.querySelector('#main-train-area .toggle-train-view-button');
+            if (mainTrainToggleButton) {
+                // The main train toggle button uses the correct expand/collapse icons
+                mainTrainToggleButton.innerHTML = currentTrains.mainTrain.isExpanded ? collapseIcon : expandIcon;
+                mainTrainToggleButton.onclick = () => toggleTrainView('mainTrain');
+            }
+
+
+            // --- Render Player's Train ---
+            const playerTrainEl = document.getElementById('player-train-0').querySelector('.train-dominoes');
+            playerTrainEl.innerHTML = '';
+            const playerTrainToRender = currentTrains.playerTrain.isExpanded ? currentTrains.playerTrain :
+                                        currentTrains.playerTrain.slice(-PLAYER_TRAIN_COMPRESSED_DOMINO_COUNT);
+            playerTrainToRender.forEach(domino => {
+                playerTrainEl.appendChild(renderDomino(domino));
+            });
+            const playerTrainEndMarker = createTrainEndMarker('playerTrain');
+            playerTrainEl.appendChild(playerTrainEndMarker);
+
+            // Add 'open-train' class if player's train is open
+            const playerTrainArea = document.getElementById('player-train-0');
+            if (trains.playerTrain.isOpen) {
+                playerTrainArea.classList.add('open-train');
+            } else {
+                playerTrainArea.classList.remove('open-train');
+            }
+            // Update toggle button icon for player train
+            const playerTrainToggleButton = document.querySelector('#player-train-0 .toggle-train-view-button');
+            if (playerTrainToggleButton) {
+                playerTrainToggleButton.innerHTML = currentTrains.playerTrain.isExpanded ? collapseIcon : expandIcon;
+                playerTrainToggleButton.onclick = () => toggleTrainView('playerTrain');
+            }
+            // Update player's domino count
+            playerDominoCountEl.textContent = `${playerHand.length} Dominos`;
+
+
+            // --- Render Computer Trains ---
+            computerHands.forEach((hand, index) => {
+                const computerTrainId = `computerTrain${index}`;
+                const computerTrainArea = document.createElement('div');
+                computerTrainArea.id = `player-train-${index + 1}`; // Start IDs from 1 for computers
+                computerTrainArea.classList.add('train-area', 'computer-train-area', 'bg-gray-100', 'p-6', 'rounded-lg', 'shadow-md', 'border', 'border-gray-200');
+
+                // Add 'open-train' class if computer's train is open
+                if (trains[computerTrainId] && trains[computerTrainId].isOpen) {
+                    computerTrainArea.classList.add('open-train');
+                }
+
+                computerTrainArea.innerHTML = `
+                    <div class="train-header">
+                        <div class="text-xl font-bold text-gray-700">Computer ${index + 1}'s Train</div>
+                        <button class="toggle-train-view-button" data-train-id="${computerTrainId}">
+                            </button>
+                    </div>
+                    <div class="train-dominoes flex flex-wrap gap-3 min-h-[100px] justify-center"></div>
+                    <div class="domino-count">${hand.length} Dominos</div>
+                `;
+                allTrainsAreaEl.appendChild(computerTrainArea);
+
+                const computerTrainDominoesEl = computerTrainArea.querySelector('.train-dominoes');
+                const compTrainToRender = trains[computerTrainId].isExpanded ? trains[computerTrainId] :
+                                          trains[computerTrainId].slice(-PLAYER_TRAIN_COMPRESSED_DOMINO_COUNT);
+                compTrainToRender.forEach(domino => {
+                    computerTrainDominoesEl.appendChild(renderDomino(domino));
+                });
+                const computerTrainEndMarker = createTrainEndMarker(computerTrainId);
+                computerTrainDominoesEl.appendChild(computerTrainEndMarker);
+
+                // Update toggle button icon for computer train
+                const compTrainToggleButton = computerTrainArea.querySelector('.toggle-train-view-button');
+                if (compTrainToggleButton) {
+                    compTrainToggleButton.innerHTML = currentTrains[computerTrainId].isExpanded ? collapseIcon : expandIcon;
+                    compTrainToggleButton.onclick = () => toggleTrainView(computerTrainId);
+                }
+            });
+
+            // Highlight playable targets if a domino is selected
+            if (selectedDomino) {
+                highlightPlayableTargets(selectedDomino);
+            }
+        }
+
+        /**
+         * Creates a clickable marker for the end of a train.
+         * @param {string} trainId The ID of the train this marker belongs to.
+         * @returns {HTMLElement} The train end marker div element.
+         */
+        function createTrainEndMarker(trainId) {
+            const marker = document.createElement('div');
+            marker.classList.add('train-end-marker', 'rounded-md', 'shadow-sm', 'border-2', 'border-dashed', 'border-gray-400', 'flex', 'justify-center', 'items-center', 'text-gray-600', 'font-semibold', 'cursor:pointer', 'hover:bg-gray-200');
+            marker.textContent = '+ Play Here';
+            marker.dataset.trainId = trainId;
+            marker.addEventListener('click', () => handleTrainClick(trainId));
+            return marker;
+        }
+
+        /**
+         * Updates the boneyard count display.
+         */
+        function updateBoneyardCount() {
+            boneyardCountEl.textContent = boneyard.length;
+        }
+
+        /**
+         * Displays a message to the user.
+         * @param {string} msg The message to display.
+         * @param {string} type 'success', 'error', 'info' for styling.
+         */
+        function setMessage(msg, type = 'info') {
+            messagesEl.textContent = msg;
+            messagesEl.classList.remove('text-red-600', 'text-green-600', 'text-blue-600');
+            if (type === 'error') messagesEl.classList.add('text-red-600');
+            else if (type === 'success') messagesEl.classList.add('text-green-600');
+            else messagesEl.classList.add('text-blue-600');
+        }
+
+        /**
+         * Helper to get the value a domino must match to be played on a train.
+         * If the train is empty, it refers to the starting double's value.
+         * @param {string} trainId The ID of the train.
+         * @returns {number} The value required to match.
+         */
+        function getTrainEndValue(trainId) {
+            const train = trains[trainId];
+            if (train.length === 0) {
+                return startingDouble[0]; // All trains initially connect to one side of the starting double
+            }
+            return train[train.length - 1][1]; // Otherwise, it's the last domino's second value
+        }
+
+        /**
+         * Returns the user-friendly display name for a given train ID.
+         * @param {string} trainId The internal ID of the train (e.g., 'mainTrain', 'playerTrain', 'computerTrain0').
+         * @returns {string} The display name (e.g., 'Mexican Train', 'Your Train', 'Computer 1\'s Train').
+         */
+        function getTrainDisplayName(trainId) {
+            if (trainId === 'mainTrain') {
+                return 'Mexican Train';
+            } else if (trainId === 'playerTrain') {
+                return 'Your Train';
+            } else if (trainId.startsWith('computerTrain')) {
+                const index = parseInt(trainId.replace('computerTrain', ''));
+                return `Computer ${index + 1}'s Train`;
+            }
+            return trainId; // Fallback
+        }
+
+
+        /**
+         * Checks if the current player can play any domino from their hand on any valid train.
+         * @returns {boolean} True if a play is possible, false otherwise.
+         */
+        function canPlayerPlayAnyDomino() {
+            for (const domino of playerHand) {
+                // Check main train
+                if (validatePlay(domino, 'mainTrain')) return true;
+
+                // Check player's train
+                if (validatePlay(domino, 'playerTrain')) return true;
+
+                // Check computer trains (if open)
+                for (let i = 0; i < numPlayers - 1; i++) {
+                    const computerTrainId = `computerTrain${i}`;
+                    // Only check if the train is actually open, as validatePlay will check this too,
+                    // but it's good to pre-filter here for efficiency and clarity.
+                    if (trains[computerTrainId] && trains[computerTrainId].isOpen) {
+                        if (validatePlay(domino, computerTrainId)) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Updates all UI elements.
+         */
+        function updateUI() {
+            // No hand sorting here, as per user's request to revert
+            renderPlayerHand();
+            renderTrains(trains);
+            renderStartingDouble(); // Render the central starting double
+            updateBoneyardCount();
+            renderScoreboard(); // Render scoreboard on every UI update
+            renderTurnInfoBox(); // Render the new turn info box
+
+            if (currentPlayerIndex === 0) { // Player's turn
+                let canEndTurn = false;
+                let playerCanPlay = canPlayerPlayAnyDomino(); // Checks if player can play *any* domino on *any* valid train
+
+                // Determine if the player can end their turn based on various scenarios
+                // Scenario 1: Player played a non-double, or covered a double.
+                if (playerPlayedThisTurn && exposedDoubleTrainId === null) {
+                    canEndTurn = true;
+                }
+                // Scenario 2: Player drew, and still cannot play anything.
+                else if (playerDrewThisTurn && !playerCanPlay) {
+                    trains.playerTrain.isOpen = true; // Train opens
+                    canEndTurn = true;
+                }
+                // Scenario 3: Boneyard is empty AND player cannot play anything (at start of turn or after drawing).
+                else if (boneyard.length === 0 && !playerCanPlay) {
+                    trains.playerTrain.isOpen = true; // Train opens
+                    canEndTurn = true;
+                }
+                // Scenario 4: Exposed double, player cannot cover it, and boneyard is empty or already drew.
+                else if (exposedDoubleTrainId && !playerHand.some(d => validatePlay(d, exposedDoubleTrainId)) && (boneyard.length === 0 || playerDrewThisTurn)) {
+                    trains.playerTrain.isOpen = true; // Player's train opens
+                    canEndTurn = true;
+                }
+                // Otherwise, cannot end turn. Player must play or draw.
+
+                // Set draw button state
+                drawButton.disabled = playerPlayedThisTurn || (playerDrewThisTurn && playerCanPlay) || boneyard.length === 0;
+
+                // Set messages based on state
+                if (exposedDoubleTrainId) {
+                    const canPlayOnExposedTrain = playerHand.some(domino => validatePlay(domino, exposedDoubleTrainId));
+                    if (canPlayOnExposedTrain) {
+                        setMessage(`You must cover the double on the ${getTrainDisplayName(exposedDoubleTrainId)} train.`, 'info');
+                    } else if (boneyard.length > 0 && !playerDrewThisTurn) {
+                        setMessage(`You must cover the double on the ${getTrainDisplayName(exposedDoubleTrainId)} train. Draw a domino if you cannot play from hand.`, 'info');
+                    } else {
+                        // This is the specific "stuck on double" scenario
+                        setMessage(`You drew (or boneyard is empty) but still cannot cover the double. Your train is now open. You may end your turn.`, 'info');
+                    }
+                } else if (!playerPlayedThisTurn && !playerDrewThisTurn) {
+                     if (boneyard.length === 0 && !playerCanPlay) {
+                         // This is the specific "stuck at start of turn" scenario
+                         setMessage("Boneyard is empty and you cannot play. Your train is now open. You may end your turn.", 'info');
+                     } else {
+                         setMessage(`It's your turn. Play a domino or draw one.`, 'info');
+                     }
+                } else if (playerPlayedThisTurn) {
+                    setMessage(`You played a domino. You may end your turn.`, 'info');
+                } else if (playerDrewThisTurn) {
+                    setMessage(`You drew a domino. Play it if possible, or end your turn.`, 'info');
+                }
+
+                endTurnButton.disabled = !canEndTurn; // Apply the final canEndTurn state
+
+            } else { // Computer's turn
+                drawButton.disabled = true;
+                endTurnButton.disabled = true;
+            }
+        }
+
+        /**
+         * Handles clicking a domino in the player's hand.
+         * @param {Array<number>} domino The domino clicked.
+         * @param {number} index The index of the domino in playerHand.
+         */
+        function handleDominoClick(domino, index) {
+            if (currentPlayerIndex !== 0) {
+                setMessage("It's not your turn!", 'error');
+                return;
+            }
+            if (selectedDominoIndex === index) {
+                // Deselect if already selected
+                selectedDomino = null;
+                selectedDominoIndex = -1;
+                setMessage("");
+            } else {
+                selectedDomino = domino;
+                selectedDominoIndex = index;
+                setMessage(`Selected domino: [${domino[0]}|${domino[1]}]. Now click on a train to play, or press 'f' to flip.`, 'info');
+            }
+            updateUI(); // Re-render to show selection
+        }
+
+        /**
+         * Validates if a domino can be played on a specific train.
+         * @param {Array<number>} domino The domino to play.
+         * @param {string} trainId contrasts The ID of the train to play on.
+         * @returns {boolean} True if the play is valid, false otherwise.
+         */
+        function validatePlay(domino, trainId) {
+            const targetTrain = trains[trainId];
+
+            // Rule 2: Exposed double must be covered first
+            // If there's an exposed double, you MUST play on that train.
+            if (exposedDoubleTrainId && trainId !== exposedDoubleTrainId) {
+                if (currentPlayerIndex === 0) {
+                    setMessage(`You must cover the exposed double on the ${getTrainDisplayName(exposedDoubleTrainId)} train first!`, 'error');
+                }
+                return false;
+            }
+
+            const lastDominoValue = getTrainEndValue(trainId);
+
+            // Rule 1: Domino must match the last domino on the train (or the starting double if train is empty)
+            const matches = (domino[0] === lastDominoValue || domino[1] === lastDominoValue);
+            if (!matches) {
+                // Removed the specific message about which domino doesn't match,
+                // as per user request to avoid giving away info on playable pieces.
+                // if (currentPlayerIndex === 0) {
+                //     setMessage(`Domino [${domino[0]}|${domino[1]}] does not match the end of the ${getTrainDisplayName(trainId)} train (${lastDominoValue}).`, 'error');
+                // }
+                return false;
+            }
+
+            // Rule 3: Player can only play on their own train, the Mexican train, or an open train
+            const isCurrentPlayersOwnTrain =
+                (currentPlayerIndex === 0 && trainId === 'playerTrain') ||
+                (currentPlayerIndex > 0 && trainId === `computerTrain${currentPlayerIndex - 1}`);
+
+            if (trainId === 'mainTrain' || isCurrentPlayersOwnTrain || targetTrain.isOpen) {
+                return true;
+            } else {
+                // Only show error for human player
+                if (currentPlayerIndex === 0) {
+                    setMessage(`You can only play on your own train, the Mexican Train, or an open computer train.`, 'error');
+                }
+                return false;
+            }
+        }
+
+        /**
+         * Highlights trains where the selected domino can be played.
+         * @param {Array<number>} domino The selected domino.
+         */
+        function highlightPlayableTargets(domino) {
+            // Remove previous highlights
+            document.querySelectorAll('.playable-target').forEach(el => {
+                el.classList.remove('playable-target');
+            });
+
+            // Check main train
+            if (validatePlay(domino, 'mainTrain')) {
+                mainTrainEl.querySelector('.train-end-marker').classList.add('playable-target');
+            }
+
+
+            // Check player's train
+            if (validatePlay(domino, 'playerTrain')) {
+                document.getElementById('player-train-0').querySelector('.train-end-marker').classList.add('playable-target');
+            }
+
+
+            // Check computer trains (if open)
+            for (let i = 0; i < numPlayers - 1; i++) {
+                const computerTrainId = `computerTrain${i}`;
+                const compTrain = trains[computerTrainId];
+                if (compTrain) { // Check if train exists
+                    // Use validatePlay to ensure it respects the exposed double rule and train openness
+                    if (validatePlay(domino, computerTrainId)) {
+                        document.getElementById(`player-train-${i + 1}`).querySelector('.train-end-marker').classList.add('playable-target');
+                    }
+                }
+            }
+        }
+
+
+        /**
+         * Handles clicking on a train to play a selected domino.
+         * @param {string} trainId contrasts The ID of the train clicked.
+         */
+        function handleTrainClick(trainId) {
+            if (currentPlayerIndex !== 0) {
+                setMessage("It's not your turn!", 'error');
+                return;
+            }
+            if (!selectedDomino) {
+                setMessage("Please select a domino from your hand first.", 'error');
+                return;
+            }
+
+            const playDomino = selectedDomino;
+            const playDominoIndex = selectedDominoIndex;
+
+            if (validatePlay(playDomino, trainId)) {
+                // Orient the domino correctly (matching end value)
+                const lastDominoValue = getTrainEndValue(trainId);
+                if (playDomino[0] !== lastDominoValue && playDomino[1] === lastDominoValue) {
+                    // Swap values if needed to match end
+                    [playDomino[0], playDomino[1]] = [playDomino[1], playDomino[0]];
+                }
+
+                // Perform the play
+                trains[trainId].push(playDomino);
+                playerHand.splice(playDominoIndex, 1);
+                playerPlayedThisTurn = true; // Player has made a valid play
+
+                // Set last action for the info box
+                lastActionPlayerIndex = 0; // Player's index
+                lastActionDescription = `Played [${playDomino[0]}|${playDomino[1]}] on ${getTrainDisplayName(trainId)}.`;
+
+                // If the player played on their own train and it was open, close it.
+                if (trainId === 'playerTrain' && trains.playerTrain.isOpen) {
+                    trains.playerTrain.isOpen = false;
+                    setMessage("You played on your train, so it is now closed.", 'info');
+                    lastActionDescription += ' (Train closed)';
+                }
+
+                // Check if a double was played
+                if (playDomino[0] === playDomino[1]) {
+                    exposedDoubleTrainId = trainId; // Set the exposed double
+                    setMessage(`You played a double! [${playDomino[0]}|${playDomino[1]}]. You must play another domino to cover it.`, 'info');
+                    lastActionDescription += ' (Played a double!)';
+                    selectedDomino = null; // Deselect domino
+                    selectedDominoIndex = -1;
+                    playerPlayedThisTurn = false; // Reset flags to allow another play in the same turn
+                    playerDrewThisTurn = false;
+                    updateUI();
+                    // Do NOT end turn here. Player gets another turn to cover the double.
+                    if (checkForWin()) { return; } // Check for win, and if so, return to prevent further turn logic
+                } else {
+                    // Non-double was played (or a double was just covered by this play)
+                    exposedDoubleTrainId = null; // Clear exposed double flag
+                    selectedDomino = null; // Deselect domino
+                    selectedDominoIndex = -1;
+                    setMessage(`You played [${playDomino[0]}|${playDomino[1]}] on the ${getTrainDisplayName(trainId)}.`, 'success');
+                    updateUI();
+                    // Only end turn if no win occurred (i.e., no one ran out of dominoes)
+                    if (!checkForWin()) { // If checkForWin() returns true, it means endRound was called.
+                        endPlayerTurn(); // End turn after a valid non-double play or covering a double
+                    }
+                }
+            } else {
+                // Message already set by validatePlay
+            }
+        }
+
+        /**
+         * Handles the player drawing a domino from the boneyard.
+         */
+        function handleDrawButton() {
+            // MULTIPLAYER POTENTIAL: This action would be sent to the server.
+            if (currentPlayerIndex !== 0) {
+                setMessage("It's not your turn!", 'error');
+                return;
+            }
+            // The logic for drawing when an exposed double needs covering is now in updateUI.
+            // This button's disabled state is managed there.
+            if (boneyard.length === 0) {
+                setMessage("Boneyard is empty!", 'error');
+                return;
+            }
+
+            const drawnDomino = boneyard.pop();
+            playerHand.push(drawnDomino);
+            playerDrewThisTurn = true;
+
+            // Set last action for the info box - DO NOT REVEAL DOMINO
+            lastActionPlayerIndex = 0; // Player's index
+            lastActionDescription = `Drew a domino.`;
+
+            setMessage(`You drew [${drawnDomino[0]}|${drawnDomino[1]}]. Try to play it now.`, 'info');
+            updateUI();
+
+            // The `updateUI` function now handles opening the train and enabling the end turn button
+            // if the player cannot play after drawing.
+        }
+
+        /**
+         * Handles the player ending their turn.
+         */
+        function handleEndTurnButton() {
+            if (currentPlayerIndex !== 0) {
+                setMessage("It's not your turn!", 'error');
+                return;
+            }
+
+            // The button's disabled state is already managed by updateUI based on game rules.
+            // If the button is enabled, it means the player is allowed to end their turn.
+            // No additional checks needed here, as updateUI is the source of truth for button state.
+            endPlayerTurn();
+        }
+
+        /**
+         * Checks if a given hand has any playable dominoes on any valid train for a specific player.
+         * This version is for general checks (e.g., deadlock detection) and takes playerIdx as argument.
+         * @param {Array<Array<number>>} hand The hand to check.
+         * @param {number} playerIdx The index of the player (0 for human, 1+ for computers).
+         * @returns {boolean} True if a play is possible, false otherwise.
+         */
+        function canPlayerPlayAnyDomino_forCheck(hand, playerIdx) {
+            for (const domino of hand) {
+                // Check main train
+                if (canDominoBePlayedOnTrain(domino, 'mainTrain', playerIdx)) return true;
+
+                // Check player's own train
+                if ((playerIdx === 0 && canDominoBePlayedOnTrain(domino, 'playerTrain', playerIdx)) ||
+                    (playerIdx > 0 && canDominoBePlayedOnTrain(domino, `computerTrain${playerIdx - 1}`, playerIdx))) {
+                    return true;
+                }
+
+                // Check other computer trains (if open)
+                for (let i = 0; i < numPlayers - 1; i++) {
+                    const compTrainId = `computerTrain${i}`;
+                    if (trains[compTrainId] && trains[compTrainId].isOpen) {
+                        if (canDominoBePlayedOnTrain(domino, compTrainId, playerIdx)) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Validates if a domino can be played on a specific train by a specific player.
+         * This is a generalized version of validatePlay for internal checks.
+         * @param {Array<number>} domino The domino to play.
+         * @param {string} trainId The ID of the train to play on.
+         * @param {number} playerIdx The index of the player attempting to play.
+         * @returns {boolean} True if the play is valid, false otherwise.
+         */
+        function canDominoBePlayedOnTrain(domino, trainId, playerIdx) {
+            const targetTrain = trains[trainId];
+
+            // Exposed double rule: If there's an exposed double, player MUST play on that train.
+            // This check is for the *current* exposedDoubleTrainId in the game state.
+            if (exposedDoubleTrainId && trainId !== exposedDoubleTrainId) {
+                return false;
+            }
+
+            const lastDominoValue = getTrainEndValue(trainId);
+            const matches = (domino[0] === lastDominoValue || domino[1] === lastDominoValue);
+            if (!matches) {
+                return false;
+            }
+
+            // Rule 3: Player can only play on their own train, the Mexican train, or an open train
+            const isCurrentPlayersOwnTrain =
+                (playerIdx === 0 && trainId === 'playerTrain') ||
+                (playerIdx > 0 && trainId === `computerTrain${playerIdx - 1}`);
+
+            if (trainId === 'mainTrain' || isCurrentPlayersOwnTrain || targetTrain.isOpen) {
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Ends the current player's turn and passes to the next.
+         */
+        function endPlayerTurn() {
+            const previousPlayerIndex = currentPlayerIndex; // Store who is ending their turn
+
+            const doubleWasExposedAndNotCovered = (exposedDoubleTrainId !== null && !playerPlayedThisTurn);
+
+            if (doubleWasExposedAndNotCovered) {
+                // If the current player (human or computer) could not cover the double,
+                // their train becomes open.
+                if (previousPlayerIndex === 0) {
+                    trains.playerTrain.isOpen = true;
+                    setMessage("You couldn't cover the double. Your train is now open.", 'info');
+                } else {
+                    trains[`computerTrain${previousPlayerIndex - 1}`].isOpen = true;
+                    setMessage(`Computer ${previousPlayerIndex} couldn't cover the double. Its train is now open.`, 'info');
+                }
+                // Set last action for the info box, overriding previous action if this was the outcome
+                lastActionPlayerIndex = previousPlayerIndex;
+                lastActionDescription = "Couldn't cover double, train opened.";
+                // exposedDoubleTrainId remains set for the next player
+            } else {
+                // If no double was exposed, or if it was covered, clear it for the next turn.
+                exposedDoubleTrainId = null;
+                // lastActionDescription is already set by the successful play/draw functions.
+                // If no action was taken (e.g., turn skipped due to deadlock), it remains as is.
+            }
+
+            // Reset turn flags for the *next* player
+            playerDrewThisTurn = false;
+            playerPlayedThisTurn = false;
+            selectedDomino = null;
+            selectedDominoIndex = -1;
+
+            // Move to the next player
+            currentPlayerIndex = (currentPlayerIndex + 1) % numPlayers;
+
+            // Check if the game is stuck (no one can play or draw)
+            let gameStuck = true;
+            for (let i = 0; i < numPlayers; i++) {
+                let hand = (i === 0) ? playerHand : computerHands[i - 1];
+                if (canPlayerPlayAnyDomino_forCheck(hand, i) || boneyard.length > 0) { // Check if player can play OR draw
+                    gameStuck = false;
+                    break;
+                }
+            }
+
+            if (gameStuck) {
+                setMessage("No one can play or draw! Round ending due to deadlock.", 'info');
+                endRound(); // Call endRound directly for deadlock
+                return;
+            }
+
+            // Corrected message for player's turn
+            if (currentPlayerIndex === 0) {
+                setMessage(`It's now Your turn.`, 'info');
+            } else {
+                setMessage(`It's now ${playerNames[currentPlayerIndex]}'s turn.`, 'info');
+            }
+            updateUI();
+
+            if (currentPlayerIndex !== 0) {
+                // Delay computer's turn for better UX
+                setTimeout(handleComputerTurn, 1500);
+            }
+        }
+
+        /**
+         * Helper to calculate the sum of pips on a domino.
+         * @param {Array<number>} domino The domino [value1, value2].
+         * @returns {number} The sum of pips.
+         */
+        function getDominoPoints(domino) {
+            return domino[0] + domino[1];
+        }
+
+        /**
+         * Basic AI for computer players.
+         */
+        function handleComputerTurn() {
+            setMessage(`Computer ${currentPlayerIndex}'s turn...`, 'info');
+            const compHand = computerHands[currentPlayerIndex - 1];
+            const compTrainId = `computerTrain${currentPlayerIndex - 1}`;
+            const compTrain = trains[compTrainId];
+
+            /**
+             * Finds the best possible play for the computer based on priority rules.
+             * @param {Array<Array<number>>} hand The computer's current hand.
+             * @param {string|null} currentExposedDoubleTrainId The ID of the train with an exposed double, if any.
+             * @returns {Object|null} An object containing the domino, its index, and targetTrainId, or null if no play is found.
+             */
+            const findPlay = (hand, currentExposedDoubleTrainId) => {
+                let playToCoverDouble = null;
+
+                // Step 1: Prioritize covering an exposed double if one exists
+                if (currentExposedDoubleTrainId) {
+                    for (let i = 0; i < hand.length; i++) {
+                        const domino = hand[i];
+                        // Use canDominoBePlayedOnTrain to ensure it respects all rules, including exposed double
+                        if (canDominoBePlayedOnTrain(domino, currentExposedDoubleTrainId, currentPlayerIndex)) {
+                            // If multiple options, pick the one with highest points to discard
+                            if (!playToCoverDouble || getDominoPoints(domino) > getDominoPoints(playToCoverDouble.domino)) {
+                                playToCoverDouble = { domino, index: i, targetTrainId: currentExposedDoubleTrainId };
+                            }
+                        }
+                    }
+                    if (playToCoverDouble) {
+                        return playToCoverDouble; // Found a play to cover the double, return it immediately
+                    }
+                }
+
+                // Step 2: If no exposed double needs covering, or if it couldn't be covered, proceed with normal play priorities.
+                let bestNormalPlay = null;
+                let bestNormalPlayScore = -Infinity;
+
+                const allTargetTrainIds = ['mainTrain', compTrainId];
+                for (let i = 0; i < numPlayers; i++) { // Iterate through ALL players' trains, including playerTrain
+                    let targetId;
+                    if (i === 0) {
+                        targetId = 'playerTrain';
+                    } else if (i === currentPlayerIndex) { // Skip own train if it's the current computer's
+                        continue;
+                    } else {
+                        targetId = `computerTrain${i - 1}`;
+                    }
+                    if (!allTargetTrainIds.includes(targetId)) { // Avoid duplicates
+                        allTargetTrainIds.push(targetId);
+                    }
+                }
+
+                // Filter out the exposedDoubleTrainId from normal targets if it's not the current player's train
+                const normalTargetTrainIds = allTargetTrainIds.filter(id => id !== currentExposedDoubleTrainId);
+
+
+                for (let i = 0; i < hand.length; i++) {
+                    const domino = hand[i];
+                    for (const targetTrainId of normalTargetTrainIds) { // Iterate through filtered normal targets
+                        if (canDominoBePlayedOnTrain(domino, targetTrainId, currentPlayerIndex)) {
+                            let currentScore = 0;
+                            const isDouble = domino[0] === domino[1];
+                            const points = getDominoPoints(domino);
+
+                            // Priority 2: Playing on its OWN train
+                            if (targetTrainId === compTrainId) {
+                                currentScore = 10000;
+                                if (isDouble) {
+                                    currentScore += 5000; // Bonus for doubles on own train
+                                }
+                                currentScore += points;
+                            }
+                            // Priority 3: Playing on an OPEN opponent's train
+                            else if (trains[targetTrainId] && trains[targetTrainId].isOpen) {
+                                currentScore = 1000;
+                                currentScore += points;
+                            }
+                            // Priority 4: Playing on the Mexican train
+                            else if (targetTrainId === 'mainTrain') {
+                                currentScore = 100;
+                                currentScore += points;
+                            }
+
+                            if (currentScore > bestNormalPlayScore) {
+                                bestNormalPlayScore = currentScore;
+                                bestNormalPlay = { domino, index: i, targetTrainId: targetTrainId };
+                            }
+                        }
+                    }
+                }
+                return bestNormalPlay;
+            };
+
+            let play = findPlay(compHand, exposedDoubleTrainId);
+
+            if (play) {
+                // Orient the domino correctly
+                const targetTrain = trains[play.targetTrainId];
+                const lastDominoValue = getTrainEndValue(play.targetTrainId);
+                if (play.domino[0] !== lastDominoValue && play.domino[1] === lastDominoValue) {
+                    [play.domino[0], play.domino[1]] = [play.domino[1], play.domino[0]];
+                }
+
+                targetTrain.push(play.domino);
+                compHand.splice(play.index, 1);
+
+                lastActionPlayerIndex = currentPlayerIndex;
+                lastActionDescription = `Played [${play.domino[0]}|${play.domino[1]}] on ${getTrainDisplayName(play.targetTrainId)}.`;
+
+                if (play.targetTrainId === compTrainId && trains[compTrainId].isOpen) {
+                    trains[compTrainId].isOpen = false;
+                    setMessage(`Computer ${currentPlayerIndex} played on its own train, so it is now closed.`, 'info');
+                    lastActionDescription += ' (Train closed)';
+                }
+
+                setMessage(`Computer ${currentPlayerIndex} played [${play.domino[0]}|${play.domino[1]}] on ${getTrainDisplayName(play.targetTrainId)}.`, 'success');
+                updateUI();
+
+                if (checkForWin()) {
+                    return;
+                }
+
+                if (play.domino[0] === play.domino[1]) {
+                    exposedDoubleTrainId = play.targetTrainId;
+                    setMessage(`Computer ${currentPlayerIndex} played a double! [${play.domino[0]}|${play.domino[1]}]. It must cover it.`, 'info');
+                    lastActionDescription += ' (Played a double!)';
+                    setTimeout(handleComputerTurn, 1500); // Recursive call for covering
+                    return;
+                } else {
+                    exposedDoubleTrainId = null;
+                }
+            } else {
+                // No play found, try to draw from boneyard
+                if (boneyard.length > 0) {
+                    const drawnDomino = boneyard.pop();
+                    compHand.push(drawnDomino);
+
+                    lastActionPlayerIndex = currentPlayerIndex;
+                    lastActionDescription = `Drew a domino.`;
+
+                    setMessage(`Computer ${currentPlayerIndex} drew a domino.`, 'info');
+                    updateUI();
+
+                    if (checkForWin()) {
+                        return;
+                    }
+
+                    play = findPlay(compHand, exposedDoubleTrainId); // Try to play the drawn domino
+                    if (play) {
+                        // Orient the domino correctly
+                        const targetTrain = trains[play.targetTrainId];
+                        const lastDominoValue = getTrainEndValue(play.targetTrainId);
+                        if (play.domino[0] !== lastDominoValue && play.domino[1] === lastDominoValue) {
+                            [play.domino[0], play.domino[1]] = [play.domino[1], play.domino[0]];
+                        }
+
+                        targetTrain.push(play.domino);
+                        compHand.splice(play.index, 1);
+
+                        lastActionPlayerIndex = currentPlayerIndex;
+                        lastActionDescription = `Played drawn domino [${play.domino[0]}|${play.domino[1]}] on ${getTrainDisplayName(play.targetTrainId)}.`;
+
+                        if (play.targetTrainId === compTrainId && trains[compTrainId].isOpen) {
+                            trains[compTrainId].isOpen = false;
+                            setMessage(`Computer ${currentPlayerIndex} played on its own train, so it is now closed.`, 'info');
+                            lastActionDescription += ' (Train closed)';
+                        }
+
+                        setMessage(`Computer ${currentPlayerIndex} played drawn domino [${play.domino[0]}|${play.domino[1]}] on ${getTrainDisplayName(play.targetTrainId)}.`, 'success');
+                        updateUI();
+
+                        if (checkForWin()) {
+                            return;
+                        }
+
+                        if (play.domino[0] === play.domino[1]) {
+                            exposedDoubleTrainId = play.targetTrainId;
+                            setMessage(`Computer ${currentPlayerIndex} played a double! [${play.domino[0]}|${play.domino[1]}]. It must cover it.`, 'info');
+                            lastActionDescription += ' (Played a double!)';
+                            setTimeout(handleComputerTurn, 1500);
+                            return;
+                        } else {
+                            exposedDoubleTrainId = null;
+                        }
+                    } else {
+                        // Still no play after drawing, mark train open
+                        compTrain.isOpen = true;
+                        setMessage(`Computer ${currentPlayerIndex} drew, but still couldn't play. Its train is now open.`, 'info');
+                        lastActionPlayerIndex = currentPlayerIndex;
+                        lastActionDescription = `Drew, but couldn't play. Train opened.`;
+                    }
+                } else {
+                    // Boneyard is empty, still no play, mark train open
+                    compTrain.isOpen = true;
+                    setMessage(`Computer ${currentPlayerIndex} couldn't play. Its train is now open. Boneyard is empty.`, 'info');
+                    lastActionPlayerIndex = currentPlayerIndex;
+                    lastActionDescription = `Couldn't play. Train opened. Boneyard empty.`;
+                }
+            }
+
+            endPlayerTurn();
+        }
+
+        /**
+         * Checks if any player has won the round.
+         * If a player wins, it triggers the end of the round.
+         * @returns {boolean} True if a player won and endRound was called, false otherwise.
+         */
+        function checkForWin() {
+            let winnerIndex = -1;
+            if (playerHand.length === 0) {
+                winnerIndex = 0;
+            } else {
+                for (let i = 0; i < numPlayers - 1; i++) {
+                    if (computerHands[i].length === 0) {
+                        winnerIndex = i + 1;
+                        break;
+                    }
+                }
+            }
+
+            if (winnerIndex !== -1) {
+                // Trigger endRound directly if there's a winner
+                endRound(winnerIndex); // Pass the winner index to endRound
+                return true;
+            }
+            return false; // No winner yet
+        }
+
+        /**
+         * Shows the round end message modal.
+         * @param {string} message The main message to display.
+         * @param {string} nextDoubleMessage The message about the next starting double.
+         */
+        function showRoundEndMessage(message, nextDoubleMessage) {
+            roundEndModalMessage.textContent = message;
+            roundEndModalNextDouble.textContent = nextDoubleMessage;
+            roundEndModalOverlay.classList.add('show');
+        }
+
+        /**
+         * Hides the round end message modal.
+         */
+        function hideRoundEndMessage() {
+            roundEndModalOverlay.classList.remove('show');
+        }
+
+        /**
+         * Ends the current round, calculates scores, updates scoreboard, and prepares for next round.
+         * @param {number} [winnerIndex=-1] The index of the player who won the round, if any.
+         */
+        function endRound(winnerIndex = -1) { // Default to -1 if no winner passed
+            let roundEndMessage = "";
+            if (winnerIndex !== -1) {
+                roundEndMessage = `${playerNames[winnerIndex]} ran out of dominoes! ${playerNames[winnerIndex]} won the round!`;
+            } else {
+                roundEndMessage = "No one could play! Round ending due to deadlock.";
+            }
+
+            // Store the starting double value for the current round before it's decremented
+            const currentStartingDoubleValue = startingDouble[0];
+            const roundScore = { round: currentRound, startingDoubleValue: currentStartingDoubleValue };
+
+            // Calculate player's score
+            roundScore.player = playerHand.reduce((sum, domino) => sum + getDominoPoints(domino), 0);
+
+            // Calculate computer scores
+            computerHands.forEach((hand, index) => {
+                roundScore[`computer${index + 1}`] = hand.reduce((sum, domino) => sum + getDominoPoints(domino), 0);
+            });
+
+            roundScores.push(roundScore); // Add current round's scores to history
+
+            // Decrement starting double for the next round
+            if (startingDouble[0] > 0) {
+                startingDouble[0]--;
+                startingDouble[1]--;
+            } else {
+                // Game over if starting double reaches 0-0 and all rounds are played
+                showRoundEndMessage("Game Over!", "Final scores are displayed.");
+                // No new round, so just return
+                return;
+            }
+
+            currentRound++; // Increment round number for the next round
+
+            const nextDoubleMessage = `Next round will start with Double ${startingDouble[0]}.`;
+            showRoundEndMessage(roundEndMessage, nextDoubleMessage);
+
+            // Hide the modal and start the new round after a delay
+            setTimeout(() => {
+                hideRoundEndMessage();
+                initRound();
+            }, 3000); // Show for 3 seconds
+        }
+
+        /**
+         * Renders the scoreboard table.
+         */
+        function renderScoreboard() {
+            const tableHead = scoreboardTableEl.querySelector('thead tr');
+            const tableBody = scoreboardTableEl.querySelector('tbody');
+
+            // Clear previous content
+            tableHead.innerHTML = '<th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Player</th>';
+            tableBody.innerHTML = '';
+
+            // Add round headers (using startingDoubleValue)
+            roundScores.forEach(round => {
+                tableHead.innerHTML += `<th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Double ${round.startingDouble}</th>`;
+            });
+            // Add the new "Total Score" header
+            tableHead.innerHTML += `<th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Total Score</th>`;
+
+
+            // Prepare player rows
+            playerNames.forEach((name, playerIndex) => {
+                const row = tableBody.insertRow();
+                row.innerHTML = `<td class="py-3 px-4">${name}</td>`; // Player Name
+
+                let playerTotalScore = 0; // Initialize total score for the current player
+                roundScores.forEach(round => {
+                    let score = 0;
+                    if (playerIndex === 0) { // Human player
+                        score = round.player;
+                    } else { // Computer players
+                        score = round[`computer${playerIndex}`];
+                    }
+                    row.innerHTML += `<td class="py-3 px-4">${score}</td>`;
+                    playerTotalScore += score; // Add to total score
+                });
+                // Add the total score column for the current player
+                row.innerHTML += `<td class="py-3 px-4 font-bold">${playerTotalScore}</td>`;
+            });
+        }
+
+        /**
+         * Renders the "Whose Turn Is It?" info box.
+         */
+        function renderTurnInfoBox() {
+            const playerTurnListEl = turnInfoBoxEl.querySelector('#player-turn-list');
+            playerTurnListEl.innerHTML = ''; // Clear previous entries
+
+            playerNames.forEach((name, index) => {
+                const playerDiv = document.createElement('div');
+                playerDiv.classList.add('p-3', 'rounded-lg', 'mb-2', 'flex', 'flex-col', 'items-start', 'transition-all', 'duration-300');
+
+                let playerStatusHtml = `<span class="text-lg text-gray-800">${name}</span>`;
+
+                if (index === currentPlayerIndex) {
+                    playerDiv.classList.add('bg-blue-200', 'font-bold', 'border-2', 'border-blue-500', 'shadow-md');
+                    playerStatusHtml += `<span class="text-sm text-blue-700 italic">Current Turn</span>`;
+                } else {
+                    playerDiv.classList.add('bg-gray-100');
+                }
+
+                // Display last action if applicable for the player who just finished their turn
+                if (index === lastActionPlayerIndex && lastActionDescription) {
+                    playerStatusHtml += `<span class="text-sm text-gray-600 italic">Last: ${lastActionDescription}</span>`;
+                }
+
+                playerDiv.innerHTML = playerStatusHtml;
+                playerTurnListEl.appendChild(playerDiv);
+            });
+        }
+
+
+        /**
+         * Initializes the game state and UI for a new round.
+         */
+        function initRound() {
+            console.log("--- Starting initRound (Round " + currentRound + ") ---");
+            allDominos = generateDominos(MAX_DOUBLE);
+            console.log("1. After generateDominos, allDominos length:", allDominos.length); // Expect 91
+            boneyard = [...allDominos]; // Copy all dominos to boneyard
+            shuffleArray(boneyard);
+            console.log("2. After copying to boneyard and shuffling, boneyard length:", boneyard.length); // Expect 91
+
+            // Determine HAND_SIZE based on numPlayers
+            let currentHandSize;
+            if (numPlayers >= 2 && numPlayers <= 4) {
+                currentHandSize = 15;
+            } else if (numPlayers >= 5 && numPlayers <= 6) {
+                currentHandSize = 12;
+            } else if (numPlayers >= 7 && numPlayers <= 8) {
+                currentHandSize = 10;
+            } else {
+                // Default or error case, e.g., for testing with more players
+                console.warn(`Unsupported number of players: ${numPlayers}. Defaulting to 15 dominoes per hand.`);
+                currentHandSize = 15;
+            }
+            console.log(`Dealing ${currentHandSize} dominoes per player for ${numPlayers} players.`);
+
+
+            // Find and remove the starting double from boneyard to ensure it's available
+            const startingDoubleIndex = boneyard.findIndex(d => d[0] === startingDouble[0] && d[1] === startingDouble[1]);
+            if (startingDoubleIndex !== -1) {
+                const removedDouble = boneyard.splice(startingDoubleIndex, 1);
+                console.log(`3. Removed starting double [${removedDouble[0]}|${removedDouble[1]}] from boneyard. New boneyard length: ${boneyard.length}`); // Expect 90
+            } else {
+                console.warn(`Starting double ${startingDouble} not found in boneyard. Adding it.`);
+                // If the starting double isn't found, it's a critical error in domino generation/logic.
+                // For now, just add it to prevent further issues, but this warning should be investigated.
+                boneyard.push(startingDouble);
+                console.log("3. (WARN) Added starting double to boneyard. New boneyard length:", boneyard.length);
+            }
+
+
+            dealHands(numPlayers, currentHandSize); // Use the dynamically determined hand size
+            console.log("4. After dealing hands, boneyard length:", boneyard.length); // Expect 90 - (3 players * 15 dominoes) = 45
+
+            // Initialize trains - they now start empty, connecting to the central startingDouble
+            trains = {
+                mainTrain: [], // Mexican Train starts empty
+                playerTrain: [],
+            };
+            trains.mainTrain.isExpanded = false; // Default to compressed
+            trains.playerTrain.isOpen = false; // Player's train starts closed
+            trains.playerTrain.isExpanded = false; // Default to compressed
+
+            for (let i = 0; i < numPlayers - 1; i++) {
+                const compTrainId = `computerTrain${i}`;
+                trains[compTrainId] = []; // Computer trains start empty
+                trains[compTrainId].isOpen = false; // Computer trains start closed
+                trains[compTrainId].isExpanded = false; // Default to compressed
+            }
+
+            currentPlayerIndex = 0; // Player starts
+            exposedDoubleTrainId = null;
+            playerDrewThisTurn = false;
+            playerPlayedThisTurn = false;
+            selectedDomino = null;
+            selectedDominoIndex = -1;
+            lastActionPlayerIndex = -1; // Reset last action for new round
+            lastActionDescription = ''; // Reset last action for new round
+
+            // Dynamically populate playerNames based on numPlayers
+            playerNames = ['You'];
+            for (let i = 1; i < numPlayers; i++) {
+                playerNames.push(`Computer ${i}`);
+            }
+
+            setMessage(`Round ${currentRound}: It's your turn.`, 'info');
+            updateUI();
+            console.log("--- End initRound ---");
+        }
+
+
+        /**
+         * Initializes the game when the window loads. This is called only once.
+         */
+        function initGame() {
+            currentRound = 1;
+            roundScores = [];
+            startingDouble = [12, 12]; // Reset starting double for a new game
+            initRound(); // Start the first round
+        }
+
+
+        // Event Listeners
+        drawButton.addEventListener('click', handleDrawButton);
+        endTurnButton.addEventListener('click', handleEndTurnButton);
+
+        // Event Listener for the new toggle button (now acts as a toggle)
+        toggleTurnInfoButton.addEventListener('click', () => {
+            if (turnInfoBoxEl.classList.contains('right-0')) {
+                // Panel is open, close it
+                turnInfoBoxEl.classList.remove('right-0');
+                turnInfoBoxEl.classList.add('right-[-300px]');
+                toggleIcon.innerHTML = openPanelIcon; // Change icon to indicate "open"
+            } else {
+                // Panel is closed, open it
+                turnInfoBoxEl.classList.add('right-0');
+                turnInfoBoxEl.classList.remove('right-[-300px]');
+                toggleIcon.innerHTML = closePanelIcon; // Change icon to indicate "close"
+            }
+        });
+
+        // Global keydown listener for flipping domino
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'f' || e.key === 'F') {
+                flipSelectedDomino();
+            }
+        });
+
+        // Initialize the game when the window loads
+        window.onload = initGame;
+    </script>
+</body>
+</html>
